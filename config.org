@@ -1,0 +1,392 @@
+* Basic Config
+#+begin_src emacs-lisp
+(setq doom-theme 'everforest-hard-light)
+
+;;(load-theme 'everforest-hard-dark t)
+;; (load-theme 'everforest-hard-light t)
+
+(setq display-line-numbers-type t)
+(setq org-directory "~/org/")
+
+(setq
+ left-fringe-width 0
+ right-fringe-width 0)
+
+(delete-selection-mode t)
+
+
+(setq doom-font (font-spec :family "JetBrainsMonoNL NF Thin" :size 13)
+       doom-big-font (font-spec :family "JetBrainsMonoNL NF Thin" :size 18)
+       doom-variable-pitch-font (font-spec :family "Overpass" :size 24)
+       doom-variable-pitch-font (font-spec :family "IBM Plex Mono" :weight 'light))
+
+#+end_src
+
+#+RESULTS:
+
+* Ui Enhancements
+** Modeline
+#+begin_src emacs-lisp
+(display-time-mode +1)
+(setq display-time-format "%a %d/%m %H:%M")
+(setq mode-line-percent-position nil)
+(setq mode-line-percent-position '(-3 ""))
+(setq mode-line-position-column-line-format '("%l"))
+#+end_src
+
+** Solaire Mode and Zoom
+#+begin_src emacs-lisp
+
+(use-package! solaire-mode
+  :hook (after-init . solaire-global-mode)
+  :config
+  (setq solaire-mode-themes-to-face-swap '(tao-yin tao-yang)))
+
+(use-package! golden-ratio
+  :after-call pre-command-hook
+  :config
+  (golden-ratio-mode +1)
+  ;; Using this hook for resizing windows is less precise than
+  ;; `doom-switch-window-hook'.
+  (remove-hook 'window-configuration-change-hook #'golden-ratio)
+  (add-hook 'doom-switch-window-hook #'golden-ratio))
+#+end_src
+** KeyFreq
+#+begin_src emacs-lisp
+(use-package! keyfreq
+:config
+  (setq keyfreq-folder "~/.emacs.d/quelpa/build/keyfreq/")
+  (keyfreq-mode 1)
+  (keyfreq-autosave-mode 1)
+  (setq keyfreq-excluded-commands
+	'(self-insert-command))
+  ;; To exclude commands:
+  ;; (setq keyfreq-excluded-commands
+  ;;     '(self-insert-command
+  ;;       forward-char
+  ;;       backward-char
+  ;;       previous-line
+  ;;       next-line))
+)
+#+end_src
+** LSP
+#+begin_src emacs-lisp
+
+(setq lsp-java-jdt-download-url "https://www.eclipse.org/downloads/download.php?file=/jdtls/milestones/1.40.0/jdt-language-server-1.40.0-202409261450.tar.gz")
+(use-package! lsp-java :after lsp
+  :init (setq lsp-java-java-path "/home/nathanmcunha/.asdf/installs/java/graalvm-community-21.0.2"
+              lsp-java-import-gradle-java-home "/home/nathanmcunha/.asdf/installs/java/graalvm-community-21.0.2"
+              lsp-java-configuration-runtimes '[(:name "JavaSE-17"
+                                                       :path "/home/nathanmcunha/.asdf/installs/java/temurin-17.0.12+7"
+                                                       )
+                                            (:name "JavaSE-21"
+						:path "/home/nathanmcunha/.asdf/installs/java/graalvm-community-21.0.2"
+                                                 :default t)]
+              lsp-java-vmargs (list
+                               "-noverify"
+                               "--enable-preview"))
+  :config (progn (add-hook 'java-mode-hook #'lsp)))
+
+(setq lsp-java-vmargs (list
+                         "-Xmx1G"
+                         "-XX:+UseG1GC"
+                         "-XX:+UseStringDeduplication"
+                         "-javaagent:/home/nathanmcunha/git-projects/lombok.jar"))
+
+(setq lsp-java-maven-download-sources t)
+(setq lsp-java-import-gradle-enabled t)
+(setq lsp-java-format-settings-url "https://raw.githubusercontent.com/google/styleguide/gh-pages/eclipse-java-google-style.xml")
+(setq lsp-java-format-settings-profile '"GoogleStyle")
+(setq lsp-diagnostics-provider :flycheck)
+
+
+
+#+end_src
+
+#+RESULTS:
+: t
+
+** Lsp Booster
+#+begin_src emacs-lisp
+(defun lsp-booster--advice-json-parse (old-fn &rest args)
+  "Try to parse bytecode instead of json."
+  (or
+   (when (equal (following-char) ?#)
+     (let ((bytecode (read (current-buffer))))
+       (when (byte-code-function-p bytecode)
+         (funcall bytecode))))
+   (apply old-fn args)))
+(advice-add (if (progn (require 'json)
+                       (fboundp 'json-parse-buffer))
+                'json-parse-buffer
+              'json-read)
+            :around
+            #'lsp-booster--advice-json-parse)
+
+(defun lsp-booster--advice-final-command (old-fn cmd &optional test?)
+  "Prepend emacs-lsp-booster command to lsp CMD."
+  (let ((orig-result (funcall old-fn cmd test?)))
+    (if (and (not test?)                             ;; for check lsp-server-present?
+             (not (file-remote-p default-directory)) ;; see lsp-resolve-final-command, it would add extra shell wrapper
+             lsp-use-plists
+             (not (functionp 'json-rpc-connection))  ;; native json-rpc
+             (executable-find "emacs-lsp-booster"))
+        (progn
+          (when-let ((command-from-exec-path (executable-find (car orig-result))))  ;; resolve command from exec-path (in case not found in $PATH)
+            (setcar orig-result command-from-exec-path))
+          (message "Using emacs-lsp-booster for %s!" orig-result)
+          (cons "emacs-lsp-booster" orig-result))
+      orig-result)))
+(advice-add 'lsp-resolve-final-command :around #'lsp-booster--advice-final-command)
+#+end_src
+
+** TreeSitter
+#+begin_src emacs-lisp
+(setq! treesit-language-source-alist
+   '((bash "https://github.com/tree-sitter/tree-sitter-bash")
+     (cmake "https://github.com/uyha/tree-sitter-cmake")
+     (css "https://github.com/tree-sitter/tree-sitter-css")
+     (elisp "https://github.com/Wilfred/tree-sitter-elisp")
+     (go "https://github.com/tree-sitter/tree-sitter-go")
+     (html "https://github.com/tree-sitter/tree-sitter-html")
+     (javascript "https://github.com/tree-sitter/tree-sitter-javascript" "master" "src")
+     (json "https://github.com/tree-sitter/tree-sitter-json")
+     (make "https://github.com/alemuller/tree-sitter-make")
+     (markdown "https://github.com/ikatyang/tree-sitter-markdown")
+     (python "https://github.com/tree-sitter/tree-sitter-python")
+     (toml "https://github.com/tree-sitter/tree-sitter-toml")
+     (tsx "https://github.com/tree-sitter/tree-sitter-typescript" "master" "tsx/src")
+     (typescript "https://github.com/tree-sitter/tree-sitter-typescript" "master" "typescript/src")
+     (yaml "https://github.com/ikatyang/tree-sitter-yaml")
+     (java "https://github.com/tree-sitter/tree-sitter-java")
+     ))
+#+end_src
+** Colorfull
+#+begin_src emacs-lisp
+(use-package! colorful-mode
+  :hook (prog-mode prog-mode-hook))
+
+(add-hook! 'prog-mode-hook 'rainbow-identifiers-mode)
+
+(setq read-process-output-max (* 1024 1024)) ;; 1mb
+
+#+end_src
+
+** Window Title
+#+begin_src emacs-lisp
+;;(setq frame-title-forma t
+      ;; '(""
+      ;;   (:eval
+      ;;    (if (string-match-p (regexp-quote (or (bound-and-true-p org-roam-directory) "\u0000"))
+      ;;                        (or buffer-file-name ""))
+      ;;        (replace-regexp-in-string
+      ;;         ".*/[0-9]*-?" "☰ "
+      ;;         (subst-char-in-string ?_ ?\s buffer-file-name))
+      ;;      "%b"))
+      ;;   (:eval
+      ;;    (when-let ((project-name (and (featurep 'projectile) (projectile-project-name))))
+      ;;      (unless (string= "-" project-name)
+      ;;        (format (if (buffer-modified-p)  " ◉ %s" "  ●  %s") project-name))))))
+#+end_src
+** Which Key and Evil
+#+begin_src emacs-lisp
+(setq which-key-allow-multiple-replacements t)
+(after! which-key
+  (pushnew!
+   which-key-replacement-alist
+   '(("" . "\\`+?evil[-:]?\\(?:a-\\)?\\(.*\\)") . (nil . "◂\\1"))
+   '(("\\`g s" . "\\`evilem--?motion-\\(.*\\)") . (nil . "◃\\1"))
+   ))
+#+end_src
+** Eros :tools eval
+#+begin_src emacs-lisp
+(setq eros-eval-result-prefix "⟹ ") ; default =>
+#+end_src
+** Consult
+#+begin_src emacs-lisp
+;; (after! consult
+;;   (set-face-attribute 'consult-file nil :inherit 'consult-buffer)
+;;   (setf (plist-get (alist-get 'perl consult-async-split-styles-alist) :initial) ";"))
+#+end_src
+** Corfu
+#+begin_src emacs-lisp
+(setq corfu-auto-delay 0.5)
+#+end_src
+
+** Projectile
+#+begin_src emacs-lisp
+(after! projectile (setq projectile-project-root-files-bottom-up (remove ".git"
+          projectile-project-root-files-bottom-up)))
+
+(setq projectile-ignored-projects
+      (list "~/" "/tmp" (expand-file-name "straight/repos" doom-local-dir)))
+(defun projectile-ignored-project-function (filepath)
+  "Return t if FILEPATH is within any of `projectile-ignored-projects'"
+  (or (mapcar (lambda (p) (s-starts-with-p p filepath)) projectile-ignored-projects)))
+
+(setq projectile-file-exists-remote-cache-expire (* 10 60))
+(setq projectile-sort-order 'modification-time)
+(setq projectile-indexing-method 'native)
+(setq projectile-require-project-root t)
+
+#+end_src
+** Jinx
+#+begin_src emacs-lisp
+(use-package! jinx
+  :defer t
+  :init
+  (add-hook 'doom-init-ui-hook #'global-jinx-mode)
+  :config
+  ;; Use my custom dictionary
+  (setq jinx-languages "en-custom")
+  ;; Extra face(s) to ignore
+  (push 'org-inline-src-block
+        (alist-get 'org-mode jinx-exclude-faces))
+  ;; Take over the relevant bindings.
+  (after! ispell
+    (global-set-key [remap ispell-word] #'jinx-correct))
+  (after! evil-commands
+    (global-set-key [remap evil-next-flyspell-error] #'jinx-next)
+    (global-set-key [remap evil-prev-flyspell-error] #'jinx-previous))
+  ;; I prefer for `point' to end up at the start of the word,
+  ;; not just after the end.
+  (advice-add 'jinx-next :after (lambda (_) (left-word))))
+#+end_src
+
+** Auto activating snippets
+#+begin_src emacs-lisp
+(use-package! aas
+  :commands aas-mode)
+#+end_src
+** Etrace
+#+begin_src emacs-lisp
+(use-package! etrace
+  :after elp)
+#+end_src
+** YASnippets
+#+begin_src emacs-lisp
+(setq yas-triggers-in-field t)
+#+end_src
+** Info Colors
+#+begin_src emacs-lisp
+(use-package! info-colors
+  :commands (info-colors-fontify-node))
+
+(add-hook 'Info-selection-hook 'info-colors-fontify-node)
+#+end_src
+
+** KeyCast
+#+begin_src emacs-lisp
+(use-package! keycast
+  :commands keycast-mode
+  :config
+  (define-minor-mode keycast-mode
+    "Show current command and its key binding in the mode line."
+    :global t
+    (if keycast-mode
+        (progn
+          (add-hook 'pre-command-hook 'keycast--update t)
+          (add-to-list 'global-mode-string '("" mode-line-keycast " ")))
+      (remove-hook 'pre-command-hook 'keycast--update)
+      (setq global-mode-string (remove '("" mode-line-keycast " ") global-mode-string))))
+  (custom-set-faces!
+    '(keycast-command :inherit doom-modeline-debug
+                      :height 0.9)
+    '(keycast-key :inherit custom-modified
+                  :height 1.1
+                  :weight bold)))
+#+end_src
+** Marginalia
+#+begin_src emacs-lisp
+;;( after! marginalia
+ ;;  ;; (setq marginalia-censor-variables nil)
+
+ ;;  (defadvice! +marginalia--anotate-local-file-colorful (cand)
+ ;;    "Just a more colourful version of `marginalia--anotate-local-file'."
+ ;;    :override #'marginalia--annotate-local-file
+ ;;    (when-let (attrs (file-attributes (substitute-in-file-name
+ ;;                                       (marginalia--full-candidate cand))
+ ;;                                      'integer))
+ ;;      (marginalia--fields
+ ;;       ((marginalia--file-owner attrs)
+ ;;        :width 12 :face 'marginalia-file-owner)
+ ;;       ((marginalia--file-modes attrs))
+ ;;       ((+marginalia-file-size-colorful (file-attribute-size attrs))
+ ;;        :width 7)
+ ;;       ((+marginalia--time-colorful (file-attribute-modification-time attrs))
+ ;;        :width 12))))
+
+ ;;  (defun +marginalia--time-colorful (time)
+ ;;    (let* ((seconds (float-time (time-subtract (current-time) time)))
+ ;;           (color (doom-blend
+ ;;                   (face-attribute 'marginalia-date :foreground nil t)
+ ;;                   (face-attribute 'marginalia-documentation :foreground nil t)
+ ;;                   (/ 1.0 (log (+ 3 (/ (+ 1 seconds) 345600.0)))))))
+ ;;      ;; 1 - log(3 + 1/(days + 1)) % grey
+ ;;      (propertize (marginalia--time time) 'face (list :foreground color))))
+
+ ;;  (defun +marginalia-file-size-colorful (size)
+ ;;    (let* ((size-index (/ (log (+ 1 size)) 7.0))
+ ;;           (color (if (< size-index 10000000) ; 10m
+ ;;                      (doom-blend 'orange 'green size-index)
+ ;;                    (doom-blend 'red 'orange (- size-index 1)))))
+ ;;      (propertize (file-size-human-readable size) 'face (list :foreground color)))))
+#+end_src
+
+** Gptel
+#+begin_src emacs-lisp
+(use-package! gptel)
+;; OpenRouter offers an OpenAI compatible API
+(gptel-make-openai "OpenRouter"               ;Any name you want
+  :host "openrouter.ai"
+  :endpoint "/api/v1/chat/completions"
+  :stream t
+  :key "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"                   ;can be a function that returns the key
+  :models '(meta-llama/llama-3.1-70b-instruct:free
+            nousresearch/hermes-3-llama-3.1-405b:free
+            google/gemma-2-9b-it:free))
+(setq gptel-default-mode 'org-mode)
+#+end_src
+
+** My utils functions
+#+begin_src emacs-lisp
+ (defun nathan-date (arg)
+   (interactive "P")
+   (insert (if arg
+               (format-time-string "%d.%m.%Y")
+             (format-time-string "%Y-%m-%d"))))
+#+end_src
+
+#+RESULTS:
+: date
+
+** Docker and Docker Compose
+#+begin_src emacs-lisp
+(map! :leader
+      (:prefix ("d" . "Docker Compose"))
+      :desc "Docker Compose up"
+      "d c u" #'docker-compose-up)
+
+(map! :leader
+      (:prefix ("d" . "Docker Compose pause"))
+      :desc "Docker Compose"
+      "d c p" #'docker-compose-pause)
+
+
+(map! :leader
+      (:prefix ("d" . "Docker Compose build"))
+      :desc "Docker Compose"
+      "d c b" #'docker-compose-build)
+
+(map! :leader
+      (:prefix ("d" . "Docker Compose restart"))
+      :desc "Docker Compose"
+      "d c r" #'docker-compose-restart)
+
+#+end_src
+
+** Formater
+#+begin_src emacs-lisp
+;; (set-formatter! 'spotless'("command" "line" "here") :modes '(java-mode))
+
+#+end_src
