@@ -341,7 +341,7 @@
   :host "openrouter.ai"
   :endpoint "/api/v1/chat/completions"
   :stream t
-  :key "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"                   ;can be a function that returns the key
+  :key ""                   ;can be a function that returns the key
   :models '(meta-llama/llama-3.1-70b-instruct:free
             nousresearch/hermes-3-llama-3.1-405b:free
             google/gemma-2-9b-it:free))
