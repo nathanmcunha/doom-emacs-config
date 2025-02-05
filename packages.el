@@ -3,7 +3,6 @@
 
 ;; To install a package with Doom you must declare them here and run 'doom sync'
 ;; on the command line, then restart Emacs for the changes to take effect -- or
-;; use 'M-x doom/reload'.
 
 
 ;; To install SOME-PACKAGE from MELPA, ELPA or emacsmirror:
@@ -48,40 +47,11 @@
 ;; (unpin! pinned-package another-pinned-package)
 ;; ...Or *all* packages (NOT RECOMMENDED; will likely break things)
 ;; (unpin! t)
-;; (package! zoom)
-
 (package! golden-ratio)
 (package! solaire-mode)
-(package! keyfreq
-  :recipe (:host github :repo "KirmTwinty/keyfreq")
-  )
-
-
-(package! minions)
-(package! mood-line)
-
 (package! colorful-mode)
 (package! rainbow-identifiers)
-;; (unpin! projectile)
-
-(package! pkg-info)
-(unpin! lsp-java)
-(package! lsp-java
-  :recipe (:host github :repo "emacs-lsp/lsp-java")
-  )
-
-(unpin! lsp-mode)
-(package! lsp-mode)
 (package! jinx)
-(package! aas :recipe (:host github :repo "ymarco/auto-activating-snippets")
-  :pin "ddc2b7a58a2234477006af348b30e970f73bc2c1")
-(package! etrace :recipe (:host github :repo "aspiers/etrace")
-  :pin "2291ccf2f2ccc80a6aac4664e8ede736ceb672b7")
-
-(package! info-colors :pin "2e237c301ba62f0e0286a27c1abe48c4c8441143")
-
-(package! keycast :pin "53514c3dc3dfb7d4c3a65898b0b3edb69b6536c2")
+(package! info-colors)
 (package! gptel)
-
-(package! everforest
-  :recipe (:host github :repo "Theory-of-Everything/everforest-emacs"))
+(package! impatient-mode)
